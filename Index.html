@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DEADLINE WARRIOR // AI Tugas RPG</title>
+    <!-- Tailwind v4 via CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Space Grotesk', sans-serif; }
+    </style>
+</head>
+<body class="bg-black text-zinc-100 min-h-screen antialiased selection:bg-purple-500 selection:text-white" x-data="gameApp()">
+
+    <!-- Header & Dashboard Karakter -->
+    <header class="border-b border-zinc-800 bg-zinc-950/80 sticky top-0 z-50 backdrop-blur p-4">
+        <div class="max-w-4xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-purple-950 border border-purple-800 rounded-lg text-purple-400 font-bold text-xs animate-pulse">LVL <span x-text="level"></span></div>
+                <div>
+                    <h1 class="text-lg font-bold tracking-tight text-purple-400">DEADLINE WARRIOR</h1>
+                    <p class="text-[10px] text-zinc-500 font-mono">Status Akademi: <span class="text-zinc-300 font-bold" x-text="getStatus()"></span></p>
+                </div>
+            </div>
+            
+            <!-- RPG Stats Bar -->
+            <div class="flex gap-4 w-full sm:w-auto text-xs font-mono">
+                <div class="flex-1 sm:w-32 bg-zinc-900 border border-zinc-800 rounded-lg p-2">
+                    <div class="flex justify-between mb-1"><span class="text-zinc-500">EXP:</span> <span x-text="exp + '/100'"></span></div>
+                    <div class="w-full bg-zinc-950 h-1.5 rounded-full overflow-hidden"><div class="bg-purple-500 h-full transition-all duration-300" :style="'width: ' + exp + '%'"></div></div>
+                </div>
+                <div class="flex-1 sm:w-32 bg-zinc-900 border border-zinc-800 rounded-lg p-2">
+                    <div class="flex justify-between mb-1"><span class="text-zinc-500">WARRIOR HP:</span> <span class="text-red-400 font-bold" x-text="hp + '%'"></span></div>
+                    <div class="w-full bg-zinc-950 h-1.5 rounded-full overflow-hidden"><div class="bg-red-500 h-full transition-all duration-300" :style="'width: ' + hp + '%'"></div></div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto p-4 grid grid-cols-1 md:grid-cols-3 gap-6 pt-8">
+        
+        <!-- Kolom Kiri: Input & Gemini Configuration -->
+        <section class="space-y-6">
+            <!-- Setup API Key (Aman di LocalStorage) -->
+            <div class="bg-zinc-900/40 border border-zinc-800 rounded-xl p-4 space-y-3">
+                <h3 class="text-xs font-bold text-zinc-400 uppercase tracking-wider">// Brain Module</h3>
+                <input type="password" x-model="apiKey" placeholder="Gemini API Key..." class="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2 text-xs focus:outline-none focus:border-purple-500 text-zinc-300">
+                <p class="text-[9px] text-zinc-600">API Key disimpan di peramban lokal perangkat Anda.</p>
+            </div>
+
+            <!-- Input Tugas Baru -->
+            <div class="bg-zinc-900/40 border border-zinc-800 rounded-xl p-4 space-y-4">
+                <h3 class="text-xs font-bold text-zinc-400 uppercase tracking-wider">// Manifestasi Monster (Tugas)</h3>
+                <div class="space-y-3 text-xs">
+                    <div>
+                        <label class="text-zinc-500 block mb-1">Nama Tugas / Subjek</label>
+                        <input type="text" x-model="newTask.title" placeholder="Contoh: Makalah Audit Jaringan" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 focus:outline-none focus:border-purple-500">
+                    </div>
+                    <div>
+                        <label class="text-zinc-500 block mb-1">Tingkat Kemalasan Anda</label>
+                        <select x-model="newTask.laziness" class="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 focus:outline-none focus:border-purple-500 text-zinc-300">
+                            <option value="mager-biasa">Mager Biasa (Bisa dicicil 3 bab)</option>
+                            <option value="akut">Mager Akut (Butuh langkah super mikro)</option>
+                            <option value="pasrah">Pasrah / SKS (Buatkan skrip darurat)</option>
+                        </select>
+                    </div>
+                    <button @click="addTask()" :disabled="!newTask.title || !apiKey" class="w-full bg-purple-600 text-black font-bold py-2.5 rounded-lg hover:bg-purple-500 transition active:scale-95 cursor-pointer disabled:opacity-30 disabled:pointer-events-none">
+                        召唤 TAMBAH MONSTER
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Kolom Tengah & Kanan: Battleground Arena (Daftar Tugas) -->
+        <section class="md:col-span-2 space-y-4">
+            <h2 class="text-sm font-bold uppercase text-zinc-400 tracking-widest flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-purple-500"></span> Active Battleground
+            </h2>
+
+            <!-- Quest Cards Container -->
+            <div class="space-y-4">
+                <template x-for="(task, index) in tasks" :key="index">
+                    <div class="bg-zinc-900/60 border border-zinc-800 rounded-xl p-5 relative overflow-hidden backdrop-blur">
+                        <div class="flex justify-between items-start mb-3">
+                            <div>
+                                <h3 class="font-bold text-base text-zinc-200" x-text="task.title"></h3>
+                                <span class="inline-block mt-1 text-[10px] uppercase font-mono px-2 py-0.5 rounded border border-purple-900/40 bg-purple-950/30 text-purple-400" x-text="task.laziness"></span>
+                            </div>
+                            <div class="flex gap-2">
+                                <button @click="breakdownTask(index)" :disabled="loadingIndex === index" class="bg-zinc-950 hover:bg-zinc-800 text-xs text-emerald-400 border border-zinc-800 px-3 py-1.5 rounded-lg font-mono flex items-center gap-2 cursor-pointer disabled:opacity-30">
+                                    <span x-show="loadingIndex !== index">🧠 AI Breakdown</span>
+                                    <span x-show="loadingIndex === index" class="animate-pulse">Analyzing...</span>
+                                </button>
+                                <button @click="completeTask(index)" class="bg-purple-600 text-black font-bold text-xs px-3 py-1.5 rounded-lg hover:bg-purple-500 cursor-pointer">⚡ Selesai</button>
+                            </div>
+                        </div>
+
+                        <!-- Sub-tasks Hasil Olahan AI Gemini -->
+                        <div x-show="task.subtasks.length > 0" x-transition class="mt-4 pt-4 border-t border-zinc-800/60 space-y-2">
+                            <h4 class="text-[11px] font-bold text-zinc-500 tracking-wider font-mono uppercase">// Rencana Serangan Mikro Kaum Mager:</h4>
+                            <div class="bg-zinc-950 border border-zinc-900 p-3 rounded-lg text-xs font-mono text-zinc-400 whitespace-pre-line leading-relaxed" x-text="task.subtasks"></div>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- Empty State -->
+                <tr x-show="tasks.length === 0">
+                    <div class="border border-dashed border-zinc-800 rounded-xl p-12 text-center text-zinc-600 font-mono text-xs">
+                        Semua tugas berhasil dibantai. Kamu aman untuk tidur seharian. 🛌
+                    </div>
+                </tr>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        function gameApp() {
+            return {
+                apiKey: localStorage.getItem('warrior_api_key') || '',
+                level: parseInt(localStorage.getItem('warrior_lvl')) || 1,
+                exp: parseInt(localStorage.getItem('warrior_exp')) || 0,
+                hp: parseInt(localStorage.getItem('warrior_hp')) || 100,
+                tasks: JSON.parse(localStorage.getItem('warrior_tasks')) || [],
+                newTask: { title: '', laziness: 'mager-biasa' },
+                loadingIndex: null,
+
+                save() {
+                    localStorage.setItem('warrior_api_key', this.apiKey);
+                    localStorage.setItem('warrior_lvl', this.level);
+                    localStorage.setItem('warrior_exp', this.exp);
+                    localStorage.setItem('warrior_hp', this.hp);
+                    localStorage.setItem('warrior_tasks', JSON.stringify(this.tasks));
+                },
+
+                getStatus() {
+                    if (this.level >= 5) return "Dewa Skripsi Anti-Mager";
+                    if (this.level >= 3) return "Aktivis Himpunan Tangguh";
+                    return "Mahasiswa Kupu-Kupu Pasrah";
+                },
+
+                addTask() {
+                    this.tasks.push({
+                        title: this.newTask.title,
+                        laziness: this.newTask.laziness,
+                        subtasks: ''
+                    });
+                    this.newTask = { title: '', laziness: 'mager-biasa' };
+                    // Menambah tugas mengurangi HP (analogi beban pikiran)
+                    this.hp = Math.max(20, this.hp - 10);
+                    this.save();
+                },
+
+                async breakdownTask(index) {
+                    this.loadingIndex = index;
+                    const task = this.tasks[index];
+                    
+                    const prompt = `Kamu adalah AI Penyelamat Mahasiswa Kaum Mager. Seseorang memiliki tugas kuliah/sekolah bernama "${task.title}". Tingkat kemalasan mereka saat ini berada di level "${task.laziness}". 
+                    Tolong pecah tugas besar ini menjadi 3 sampai 4 langkah pengerjaan yang SANGAT KECIL DAN GAMPANG, agar otak kaum mager tidak menolaknya. Gunakan gaya bahasa santai, kocak ala mahasiswa Gen Z Indonesia, hilangkan format tebal bintang markdown berlebihan, gunakan list penomoran bersih langsung ke intinya.`;
+
+                    try {
+                        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${this.apiKey}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                        });
+                        const data = await response.json();
+                        task.subtasks = data.candidates[0].content.parts[0].text;
+                    } catch (e) {
+                        task.subtasks = "Gagal memanggil modul AI. Pastikan API Key benar dan internet lancar.";
+                    } finally {
+                        this.loadingIndex = null;
+                        this.save();
+                    }
+                },
+
+                completeTask(index) {
+                    this.tasks.splice(index, 1);
+                    // Menyelesaikan tugas menambah EXP dan memulihkan HP
+                    this.exp += 35;
+                    this.hp = Math.min(100, this.hp + 15);
+                    
+                    if (this.exp >= 100) {
+                        this.level += 1;
+                        this.exp = this.exp - 100;
+                        alert(`🎉 LEVEL UP! Kamu sekarang Level ${this.level}! Beban akademikmu berkurang.`);
+                    }
+                    this.save();
+                }
+            }
+        }
+    </script>
+</body>
+</html>
